@@ -50,6 +50,8 @@ We need to execute these steps in order to run our local DynamoDB.
   * **heapMax:**  A string which sets the maximum heap size e.g., heapMax: '1g'. This is input to the java -Xmx argument
 * Once we have the DynamoDB running on `http:localhost:8000` we have to create a new DynamoDB client which will connect to this local DynamoDB
 
+So if you want to keep the information between your executions you can set `inMemory` to `false` and additionally, you can specify the `dbPath` where the data will be stored.
+
 This code is located in `utilities/utils.js` file:
 
 ```javascript
