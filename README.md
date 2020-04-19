@@ -118,7 +118,7 @@ This code is located in `utilities/utils.js` file:
 ```
 Once we have the local DynamoDB running, the client created, the persistence adapter created and using this client, it is time to set the adapter to our Skill.
 
-This is how our `inedx.js` looks like:
+This is how our `index.js` looks like:
 
 ```javascript
 
