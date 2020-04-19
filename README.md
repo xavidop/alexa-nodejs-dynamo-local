@@ -1,14 +1,16 @@
-# Alexa Skill with Local DynamoDB 
+# Alexa Skill with local DynamoDB 
 
-Alexa skills can be developed using Alexa Lambda functions or a REST API endpoint. 
-Lambda function is Amazon's implementation of serverless functions available in AWS. 
-Amazon recommends using Lambda functions despite they are not easy to debug. 
-While you can log to a CloudWatch log, you can't hit a breakpoint and step into the code. 
- 
-This makes live debugging of Alexa requests a very hard task.
-In this post, we will implement a custom skill for Amazon Alexa by using Node.js, npm and AWS Lambda Functions. This skill is basically a Hello World example. 
-With this post you will be able to create a custom skill for Amazon Alexa, implement functionality by using Node.js and start your custom skill both from your local computer and from AWS.
-This post contains materials from different resources that can be seen on Resources section.
+Mocking away dependencies — especially external dependencies — is common practice when writing tests or when you are developing locally.
+Dependency injection typically makes it easy to provide a mock implementation for your dependencies, e.g. a database.
+
+In this article we will discuss how to remove the need for mocking a [DynamoDB](https://aws.amazon.com/dynamodb/).
+
+Mocking database is a technique that allows you to set the desired database state in your tests to let specific data-sets ready for future test execution. 
+Using this technique, you can focus on getting the test data-sets ready once, and then use it on different test phases regarding the environments by using mocking.
+This technique is also useful when you are writing your code on your local laptop.
+In other words, Database Mocking is a simulation of a database either with few records or with an empty database.
+
+Alexa Skills can use DynamoDB to persist data between sessions. DynamoDB is a fully managed NoSQL database offered by Amazon Web Services.
 
 ## Prerequisites
 
@@ -16,102 +18,124 @@ Here you have the technologies used in this project
 1. Amazon Developer Account - [How to get it](http://developer.amazon.com/)
 2. AWS Account - [Sign up here for free](https://aws.amazon.com/)
 3. ASK CLI - [Install and configure ASK CLI](https://developer.amazon.com/es-ES/docs/alexa/smapi/quick-start-alexa-skills-kit-command-line-interface.html)
-4. Node.js v10.x
-5. Visual Studio Code
-6. npm Package Manager
-7. Alexa ASK for Node.js (Version >2.7.0)
-8. ngrok
+4. AWS CLI - [Install and configure AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-install.html)
+5. Node.js v10.x
+6. Java Runtime Environment (JRE) version 6.x or newer
+7. Visual Studio Code
+8. npm Package Manager
 
 The Alexa Skills Kit Command Line Interface (ASK CLI) is a tool for you to manage your Alexa skills and related resources, such as AWS Lambda functions.
 With ASK CLI, you have access to the Skill Management API, which allows you to manage Alexa skills programmatically from the command line.
-We will use this powerful tool to create, build, deploy and manage our Hello World Skill. Let's start!
+If you want how to create your Skill with the ASK CLI, please follow the first steps explained in my [Node.js Skill](https://github.com/xavidop/alexa-nodejs-lambda-helloworld) sample. Let's start!
 
-## Creating the Skill with ASK CLI
+## Creating local DynamoDB
 
-For creating the Alexa Skill, we will use de ASK CLI previously configured. First of all, we have to execute this command:
+In this project we are going to use the npm package `dynamodb-localhost`. This library works as a wrapper for AWS DynamoDB Local, intended for use in devops. This library is capable of downloading and installing the DynamoDB Local with a simple set of commands, and pass optional attributes defined in [DynamoDB Local Documentation](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DynamoDBLocal.html).
 
-```bash
+If you are using Docker, this npm library executes exactly the same commands but in a different way. The Docker image and this library will run the same [executable jar file](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DynamoDBLocal.DownloadingAndRunning.html).
 
-    ask new
+We will use this library in order to make it easier mocking the DynamoDB.
 
-```
-This command will run and interactive step-by-step creation process:
+We need to execute these steps in order to run our local DynamoDB.
+* The first thing we need is to install this local DynamoDB using the library. This step will be achieved by running the method `dynamodbLocal.install()`. This method will download the latest version of the official jar file that you can find above.
+* Once the DynamoDB is installed locally, now we can start it running the method `dynamodbLocal.start(options)`. To run these two steps synchronously we will use the npm package `synchronized-promise`. The `options` object has these properties:
+  * **port:** Port to listen on. Default: 8000
+  * **cors:**  Enable CORS support (cross-origin resource sharing) for JavaScript. You must provide a comma-separated "allow" list of specific domains. The default setting for cors is an asterisk (*), which allows public access.
+  * **inMemory:** DynamoDB; will run in memory, instead of using a database file. When you stop DynamoDB;, none of the data will be saved. Note that you cannot specify both dbPath and inMemory at once. 
+  * **dbPath:** The directory where DynamoDB will write its database file. If you do not specify this option, the file will be written to the current directory. Note that you cannot specify both dbPath and inMemory at once. For the path, current working directory is <projectroot>/node_modules/dynamodb-localhost/dynamob. For example to create <projectroot>/node_modules/dynamodb-localhost/dynamob/<mypath> you should specify '<mypath>/' with a forwardslash at the end. 
+  * **sharedDb:** DynamoDB will use a single database file, instead of using separate files for each credential and region. If you specify sharedDb, all DynamoDB clients will interact with the same set of tables regardless of their region and credential configuration.
+  * **delayTransientStatuses:** Causes DynamoDB to introduce delays for certain operations. DynamoDB can perform some tasks almost instantaneously, such as create/update/delete operations on tables and indexes; however, the actual DynamoDB service requires more time for these tasks. Setting this parameter helps DynamoDB simulate the behavior of the Amazon DynamoDB web service more closely. (Currently, this parameter introduces delays only for global secondary indexes that are in either CREATING or DELETING status.)
+  * **optimizeDbBeforeStartup:** Optimizes the underlying database tables before starting up DynamoDB on your computer. You must also specify -dbPath when you use this parameter.
+  * **heapInitial:** A string which sets the initial heap size e.g., heapInitial: '2048m'. This is input to the java -Xms argument 
+  * **heapMax:**  A string which sets the maximum heap size e.g., heapMax: '1g'. This is input to the java -Xmx argument
+* Once we have the DynamoDB running on `http:localhost:8000` we have to create a new DynamoDB client which will connect to this local DynamoDB
 
-1. The first thing the ASK CLI is going to ask us is the runtime of our Skill. In our case, `Node.js v10`:
-
-![image](img/runtime.png)
-
-2. The second step is the template of the Skill that our Skill is going to base on. In our case, we will select `Hello World` template:
-
-![image](img/template.png)
-
-3. Finally, the ASK CLI is going to ask about the name of the Skill:
-
-![image](img/name.png)
-
-## Project Files 
-
-These are the main files of the project:
-
-```bash
-
-    ├───.ask
-    │       config
-    │
-    ├───.vscode
-    │       launch.json
-    ├───hooks
-    ├───lambda
-    │   └───custom
-    │         ├───errors
-    │         ├───intents
-    │         ├───interceptors
-    │         ├───utilities
-    │         ├─── index.js
-    │         ├─── local-debugger.js
-    │         └─── package.json
-    ├───models
-    │       es-ES.json
-    └───skill.json
-
-```
-
-* .ask: folder which contains the ASK CLI's config file. This config files will remain empty until we execute the command `ask deploy`
-* `.vscode/launch.json`: Launch preferences to run locally your Skill for local testing. This setting launch `lambda/custom/local-debugger.js`. This script runs a server on http://localhost:3001 for debug the Skill.
-* hooks: A folder that contains the hook scripts. Amazon provides two hooks, post_new_hook and pre_deploy_hook.
-  * `post_new_hook`: executed after the Skill creation. Inn Node.js runs `npm install` in each sourceDir in `skill.json`
-  * `pre_deploy_hook`: executed before the Skill deployment. In Node.js runs `npm install` in each sourceDir in `skill.json` as well.
-* lambda/custom: A folder that contains the source code for the skill's AWS Lambda function:
-  * `index.js`: the lambda main entry point.
-  * `utilities/languageStrings.js`: i18n dictionaries used by the library `i18next` which allow us to run same in Skill in different configuration languages.
-  * `package.json`: this file is core to the Node.js ecosystem and is a basic part of understanding and working with Node.js, npm, and even modern JavaScript
-  * `utilities/util.js`: file with helpful functions.
-  * `local-debugger.js`: used for debug our skill locally.
-  * `errors`: folder that contains all Error handlers.
-  * `intents`: folder that contains all Intent handlers.
-  * `interceptors`: here you can find all interceptors.
-* models – A folder that contains interaction models for the skill. Each interaction model is defined in a JSON file named according to the locale. For example, es-ES.json.
-* `skill.json` – The skill manifest. One of the most important files in our project.
-
-
-## Lambda function in Javascript
-
-The ASK SDK for Node.js makes it easier for you to build highly engaging skills by allowing you to spend more time implementing features and less time writing boilerplate code.
-
-You can find documentation, samples and helpful links in their official [GitHub repository](https://github.com/alexa/alexa-skills-kit-sdk-for-nodejs)
-
-The main Javascript file in our lambda project is `index.js` located in `lambda/custom` folder. This file contains all handlers, interceptors and exports the Skill handler in `exports.handler`.
-
-The `exports.handler` function is executed every time AWS Lambda is initiated for this particular function. 
-In theory, an AWS Lambda function is just a single function. This means that we need to define dispatching logic so a single function request can route to appropriate code, hence the handlers.
+This code is located in `utilities/utils.js` file:
 
 ```javascript
 
+  function getLocalDynamoDBClient(options) {
+
+        //Javascript Promise used for installing and starting local DynamoDB
+        const initializeClient = () => {
+            return new Promise((resolve, reject) => {
+                dynamodbLocal.install(() => {
+                    if (!options) reject(new Error('no options passed in!'))
+                    dynamodbLocal.start(options);
+                    resolve();
+                });    
+            })
+        };
+
+        //install & start synchronously
+        let syncInitialization = sp(initializeClient)
+        syncInitialization();
+
+        //configuration for creating a DynamoDB client that will connect to the local instance
+        AWS.config.update({
+          region: 'local',
+          endpoint: 'http://localhost:' + options.port,
+          accessKeyId: 'fake',
+          secretAccessKey: 'fake',
+        });
+    
+        return new AWS.DynamoDB();
+  }
+
+```
+
+## Using local DynamoDB
+
+Now we have our DynamoDB running on our laptop and a client configured ready to connect to it. It is time to set up the Alexa Skill to use this client.
+Before this, it is important to notice that a very powerful feature of the new Alexa SDK, is the ability to save session data to DynamoDB with one line of code. 
+But in order to activate this feature, you have to tell to the ASK persistence adapter you are going to use and which client will use this adapter.
+We need to add the npm package `ask-sdk-dynamodb-persistence-adapter` to create our persistence adapter.
+
+This code is located in `utilities/utils.js` file:
+
+```javascript
+
+  function getPersistenceAdapter(tableName, createTable, dynamoDBClient) {
+
+    let options = {
+        tableName: tableName,
+        createTable: createTable,
+        partitionKeyGenerator: (requestEnvelope) => {
+          const userId = Alexa.getUserId(requestEnvelope);
+          return userId.substr(userId.lastIndexOf(".") + 1);
+        }
+    }
+    //if a DynamoDB client is specified, this adapter will use it. e.g. the one that will connect to our locad instance
+    if(dynamoDBClient){
+        options.dynamoDBClient = dynamoDBClient
+    }
+
+   return new DynamoDbPersistenceAdapter(options);
+  }
+
+```
+Once we have the local DynamoDB running, the client created, the persistence adapter created and using this client, it is time to set the adapter to our Skill.
+
+This is how our `inedx.js` looks like:
+
+```javascript
+
+  var local = process.env.DYNAMODB_LOCAL
+  let persistenceAdapter;
+  //depending if we have enabled the local DynamoDB, we create de pertiance adapter with or without local client
+  if(local === 'true'){
+    let options = { port: 8000 }
+    let dynamoDBClient = getLocalDynamoDBClient(options); 
+    persistenceAdapter = getPersistenceAdapter("exampleTable", true, dynamoDBClient);
+  }else{
+    persistenceAdapter = getPersistenceAdapter("exampleTable", true);
+  }
+
   /**
-  * This handler acts as the entry point for your skill, routing all request and response
-  * payloads to the handlers above. Make sure any new handlers or interceptors you've
-  * defined are included below. The order matters - they're processed top to bottom 
-  * */
+   * This handler acts as the entry point for your skill, routing all request and response
+   * payloads to the handlers above. Make sure any new handlers or interceptors you've
+   * defined are included below. The order matters - they're processed top to bottom 
+   * */
   exports.handler = Alexa.SkillBuilders.custom()
       .addRequestHandlers(
           LaunchRequestHandler,
@@ -123,80 +147,42 @@ In theory, an AWS Lambda function is just a single function. This means that we 
           IntentReflectorHandler)
       .addErrorHandlers(
           ErrorHandler)
+      .withPersistenceAdapter(persistenceAdapter)
       .addRequestInterceptors(
           LocalisationRequestInterceptor)
+      .addResponseInterceptors(
+          SaveAttributesResponseInterceptor)
       .lambda();
 
 ```
-It is important to take a look into the `LaunchRequestHandler` as an example of Alexa Skill handler written in Node.js:
+
+Finally, we have an example of persisting the data in our `SaveAttributesResponseInterceptor` interceptor located in `interceptors` folder:
 
 ```javascript
 
-  const LaunchRequestHandler = {
-      //Method that returns true if this handler can execute the current request
-      canHandle(handlerInput) {
-          return Alexa.getRequestType(handlerInput.requestEnvelope) === 'LaunchRequest';
-      },
-      //Method that will process the request if the method above returns true
-      handle(handlerInput) {
-          const speakOutput = handlerInput.t('WELCOME_MSG');
+  const Alexa = require("ask-sdk-core");
 
-          return handlerInput.responseBuilder
-              .speak(speakOutput)
-              .reprompt(speakOutput)
-              .getResponse();
-      }
+  module.exports = {
+    SaveAttributesResponseInterceptor: {
+      async process(handlerInput, response) {
+        if (!response) return; 
+
+        const { attributesManager, requestEnvelope } = handlerInput;
+
+        console.log(
+          "Saving to persistent storage:" + JSON.stringify(requestEnvelope)
+        );
+        attributesManager.setPersistentAttributes(requestEnvelope);
+        await attributesManager.savePersistentAttributes();
+      },
+    },
   };
 
 ```
 
-## Building the Skill with Visual Studio Code
+As you can see, the interceptor above is storing in the DynamoDB the incoming request. This is just a silly example used to show you how it works.
 
-Inside `package.json`, we will almost always find metadata specific to the project. 
-This metadata helps identify the project and acts as a baseline for users and contributors to get information about the project.
-
-Here is how this file looks like:
-
-```json
-
-  {
-    "name": "alexa-nodejs-lambda-helloworld",
-    "version": "1.0.0",
-    "description": "Alexa HelloWorld example with NodeJS",
-    "main": "index.js",
-    "scripts": {
-      "test": "echo \"Error: no test specified\" && exit 1"
-    },
-    "repository": {
-      "type": "git",
-      "url": "https://github.com/xavidop/alexa-nodejs-lambda-helloworld.git"
-    },
-    "author": "Xavier Portilla Edo",
-    "license": "Apache-2.0",
-    "dependencies": {
-      "ask-sdk-core": "^2.7.0",
-      "ask-sdk-model": "^1.19.0",
-      "aws-sdk": "^2.326.0",
-      "i18next": "^15.0.5"
-    }
-  }
-
-```
-
-With Javascript or Node.js the term of build is a little bit different. For build our Skill, we can run the following command:
-
-```bash
-
-  npm install
-
-```
-
-This command installs a package, and any packages that it depends on. 
-If the package has a package-lock or shrink-wrap file, the installation of dependencies will be driven by that.
-
-It could be the way to build our Alexa Skill.
-
-## Running the Skill with Visual Studio Code
+## Running the DynamoDB locally with Visual Studio Code
 
 The `launch.json` file in `.vscode` folder has the configuration for Visual Studio Code which allow us to run our lambda locally:
 
@@ -205,23 +191,26 @@ The `launch.json` file in `.vscode` folder has the configuration for Visual Stud
   {
     "version": "0.2.0",
     "configurations": [
-        {
-            "type": "node",
-            "request": "launch",
-            "name": "Launch Skill",
-            // Specify path to the downloaded local adapter(for Node.js) file
-            "program": "${workspaceRoot}/lambda/custom/local-debugger.js",
-            "args": [
-                // port number on your local host where the alexa requests will be routed to
-                "--portNumber", "3001",
-                // name of your Node.js main skill file
-                "--skillEntryFile", "${workspaceRoot}/lambda/custom/index.js",
-                // name of your lambda handler
-                "--lambdaHandler", "handler"
-            ]
-        }
-    ]
-}
+          {
+              "type": "node",
+              "request": "launch",
+              "name": "Launch Skill",
+              "env": {
+                  "DYNAMODB_LOCAL": "true"
+              },
+              // Specify path to the downloaded local adapter(for nodejs) file
+              "program": "${workspaceRoot}/lambda/custom/local-debugger.js",
+              "args": [
+                  // port number on your local host where the alexa requests will be routed to
+                  "--portNumber", "3001",
+                  // name of your nodejs main skill file
+                  "--skillEntryFile", "${workspaceRoot}/lambda/custom/index.js",
+                  // name of your lambda handler
+                  "--lambdaHandler", "handler"
+              ]
+          }
+      ]
+  }
 
 ```
 This configuration file will execute the following command:
@@ -245,166 +234,143 @@ After configuring our launch.json file and understanding how the local debugger 
 
 After executing it, you can send Alexa POST requests to http://localhost:3001.
 
-## Debugging the Skill with Visual Studio Code
+**NOTE:** If you want to start the local DynamoDB you have to set to `true` the environment variable `DYNAMODB_LOCAL` in this file.
 
-Following the steps before, now you can set up breakpoints wherever you want inside all JS files in order to debug your skill:
+## Debugging and testing the Skill with Visual Studio Code
 
-![image](img/debug.png)
+Following the steps before, now you can set up breakpoints wherever you want inside all JS files in order to debug your skill. 
 
-## Testing requests locally
+In my post talking about [Node.js Skill](https://github.com/xavidop/alexa-nodejs-lambda-helloworld) you can see how to test your Skill either directly with Alexa Developer Console or locally with Postman.
 
-I'm sure you already know the famous tool call [Postman](https://www.postman.com/). REST APIs have become the new standard in providing a public and secure interface for your service. Though REST has become ubiquitous, it's not always easy to test. Postman, makes it easier to test and manage HTTP REST APIs. Postman gives us multiple features to import, test and share APIs, which will help you and your team be more productive in the long run.
+## Checking the local DynamoDB
 
-After run your application you will have an endpoint available at http://localhost:3001. With Postman you can emulate any Alexa Request. 
+When we are running the DynamoDB locally, this local instance we will set up a shell in http://localhosta:8000/shell
 
-For example, you can test a `LaunchRequest`:
+![image](img/shell.png)
 
-```json
+In that shell we can execute queries in order to check the content of our local database. These are some example of queries you can do:
 
-  {
-    "version": "1.0",
-    "session": {
-      "new": true,
-      "sessionId": "amzn1.echo-api.session.[unique-value-here]",
-      "application": {
-        "applicationId": "amzn1.ask.skill.[unique-value-here]"
-      },
-      "user": {
-        "userId": "amzn1.ask.account.[unique-value-here]"
-      },
-      "attributes": {}
-    },
-    "context": {
-      "AudioPlayer": {
-        "playerActivity": "IDLE"
-      },
-      "System": {
-        "application": {
-          "applicationId": "amzn1.ask.skill.[unique-value-here]"
-        },
-        "user": {
-          "userId": "amzn1.ask.account.[unique-value-here]"
-        },
-        "device": {
-          "supportedInterfaces": {
-            "AudioPlayer": {}
-          }
-        }
-      }
-    },
-    "request": {
-      "type": "LaunchRequest",
-      "requestId": "amzn1.echo-api.request.[unique-value-here]",
-      "timestamp": "2020-03-22T17:24:44Z",
-      "locale": "en-US"
-    }
-  }
+1. Get all the content of our table:
+
+```javascript
+
+  //GET ALL VALUES FROM TABLE
+
+  var params = {
+      TableName: 'exampleTable',
+
+      Select: 'ALL_ATTRIBUTES', // optional (ALL_ATTRIBUTES | ALL_PROJECTED_ATTRIBUTES |
+                                //           SPECIFIC_ATTRIBUTES | COUNT)
+      ConsistentRead: false, // optional (true | false)
+      ReturnConsumedCapacity: 'NONE', // optional (NONE | TOTAL | INDEXES)
+  };
+
+
+  AWS.config.update({
+    region: "local",
+    endpoint: "http://localhost:8000",
+    accessKeyId: "fake",
+    secretAccessKey: "fake"
+  });
+
+  var dynamodb = new AWS.DynamoDB();
+
+
+  dynamodb.scan(params, function(err, data) {
+      if (err) ppJson(err); // an error occurred
+      else ppJson(data); // successful response
+  });
 
 ```
 
-## Deploying your Alexa Skill
+Then we can show the data of the table:
 
-With the code ready to go, we need to deploy it on AWS Lambda so it can be connected to Alexa.
+![image](img/table.png)
 
-Before deploy the Alexa Skill, we can show the `config` file in `.ask` folder it is empty:
 
-```json
-    {
-      "deploy_settings": {
-        "default": {
-          "skill_id": "",
-          "was_cloned": false,
-          "merge": {}
-        }
-      }
-    }
+2. Get the information of our table:
+
+```javascript
+
+  //GET TABLE INFORMATION
+  var params = {
+      TableName: 'exampleTable',
+  };
+
+  AWS.config.update({
+    region: "local",
+    endpoint: "http://localhost:8000",
+    accessKeyId: "fake",
+    secretAccessKey: "fake"
+  });
+
+  var dynamodb = new AWS.DynamoDB();
+
+  dynamodb.describeTable(params, function(err, data) {
+      if (err) ppJson(err); // an error occurred
+      else ppJson(data); // successful response
+  });
 
 ```
 
-Deploy Alexa Skill with ASK CLI:
+Now we can show the information of our table:
+
+![image](img/info.png)
+
+These queries are using the [AWS SDK for JavaScript](https://docs.aws.amazon.com/sdk-for-javascript/v2/developer-guide/dynamodb-examples.html). 
+
+This local DynamoDB is accessible by the AWS CLI. Before using the CLI, we need to create a `fake` profile that will use the region, accessKeyId and secretAccessKey used by our local database. So in our `~/.aws/credentials` we have to create the `fake` profile:
 
 ```bash
-    ask deploy
+
+  [fake]
+  aws_access_key_id=fake
+  aws_secret_access_key=fake
+
 ```
 
-As the official documentation says:
+And in our `~/.aws.conifg` we set the local region for our `fake` profile:
 
-When the local skill project has never been deployed, ASK CLI creates a new skill in the development stage for your account, then deploys the skill project. If applicable, ASK CLI creates one or more new AWS Lambda functions in your AWS account and uploads the Lambda function code. Specifically, ASK CLI does the following:
+```bash
 
-1. Looks in your skill project's config file (in the .ask folder, which is in the skill project folder) for an existing skill ID. If the config file does not contain a skill ID, ASK CLI creates a new skill using the skill manifest in the skill project's skill.json file, then adds the skill ID to the skill project's config file.
-2. Looks in your skill project's manifest (skill.json file) for the skill's published locales. These are listed in the manifest.publishingInformation.locales object. For each locale, ASK CLI looks in the skill project's models folder for a corresponding model file (for example, es-ES.json), then uploads the model to your skill. ASK CLI waits for the uploaded models to build, then adds each model's eTag to the skill project's config file.
-3. Looks in your skill project's manifest (skill.json file) for AWS Lambda endpoints. These are listed in the manifest.apis.<skill type>.endpoint or manifest.apis.<skill type>.regions.<region code>.endpoint objects (for example, manifest.apis.custom.endpoint or manifest.apis.smartHome.regions.NA.endpoint). Each endpoint object contains a sourceDir value, and optionally a uri value. ASK CLI upload the contents of the sourceDir folder to the corresponding AWS Lambda function and names the Lambda function the same as the uri value. For more details about how ASK CLI performs uploads to Lambda, see AWS Lambda deployment details.
-4. Looks in your skill project folder for in-skill products, and if it finds any, uploads them to your skill. For more information about in-skill products, see the In-Skill Purchasing Overview.
+  [fake]
+  region = local
 
+```
 
-After the execution of the above command, we will have the `config` file properly filled:
+After creating it, now we can execute queries using the AWS CLI using our `fake` profile:
+
+```bash
+
+  aws dynamodb list-tables --endpoint-url http://localhost:8000 --region local --profile fake
+
+```
+
+This command will return a list of tables in our local database:
 
 ```json
 
   {
-    "deploy_settings": {
-      "default": {
-        "skill_id": "amzn1.ask.skill.ed038d5e-61eb-4383-a480-04e3398b398d",
-        "was_cloned": false,
-        "merge": {},
-        "resources": {
-          "manifest": {
-            "eTag": "faa883c92faf9a495407f0d03d5e3790"
-          },
-          "interactionModel": {
-            "es-ES": {
-              "eTag": "c9e7fd862be0dd3b21252b8bca53c7f7"
-            }
-          },
-          "lambda": [
-            {
-              "alexaUsage": [
-                "custom/default"
-              ],
-              "arn": "arn:aws:lambda:us-east-1:141568529918:function:ask-custom-alexa-nodejs-lambda-helloworld-default",
-              "awsRegion": "us-east-1",
-              "codeUri": "lambda/custom",
-              "functionName": "ask-custom-alexa-nodejs-lambda-helloworld-default",
-              "handler": "index.handler",
-              "revisionId": "ef2707ee-a366-484d-a4b7-3826a44692dd",
-              "runtime": "nodejs10.x"
-            }
-          ]
-        }
-      }
-    }
+      "TableNames": [
+          "exampleTable"
+      ]
   }
 
 ```
 
-## Test requests directly from Alexa
-
-ngrok is a very cool, lightweight tool that creates a secure tunnel on your local machine along with a public URL you can use for browsing your local site or APIs.
-
-When ngrok is running, it listens on the same port that you’re local web server is running on and proxies external requests to your local machine
-
-From there, it’s a simple step to get it to listen to your web server. Say you’re running your local web server on port 3001. In terminal, you’d type in: `ngrok http 3001`. This starts ngrok listening on port 3001 and creates the secure tunnel:
-
-![image](img/tunnel.png)
-
-So now you have to go to [Alexa Developer console](https://developer.amazon.com/alexa/console/ask), go to your skill > endpoints > https, add the https url generated above . Eg: https://20dac120.ngrok.io.
-
-Select the My development endpoint is a sub-domain.... option from the dropdown and click save endpoint at the top of the page.
-
-Go to Test tab in the Alexa Developer Console and launch your skill.
-
-The Alexa Developer Console will send a HTTPS request to the ngrok endpoint (https://20dac120.ngrok.io) which will route it to your skill running on Web API server at http://localhost:3001.
-
-
-## Resources
-* [Official Alexa Skills Kit Node.js SDK](https://www.npmjs.com/package/ask-sdk) - The Official Node.js SDK Documentation
-* [Official Alexa Skills Kit Documentation](https://developer.amazon.com/docs/ask-overviews/build-skills-with-the-alexa-skills-kit.html) - Official Alexa Skills Kit Documentation
-
+You can find more information about how to make queries with the AWS CLI [here](https://docs.aws.amazon.com/cli/latest/reference/dynamodb/index.html)
 
 ## Conclusion 
 
-This was a basic tutorial to learn Alexa Skills using Node.js.
-As you have seen in this example, the Alexa Skill Kit for Node.js and the Alexa Tools like ASK CLI can help us a lot and also they give us the possibility to create skills in an easy way. 
+This was a basic tutorial to mock a DynamoDB with our Alexa Skills using Node.js.
+With this technique, you can easily make changes to your unit test data and run experiments. This is will make your tests more believable with "real" data and a "real" environment.
+
+How many of you have had an issue with production where it works on staging, but doesn't work on production and the source code is the same in both environments.
+
+This is one example of being able to take/save data from/to a local DynamoDB (with the query above) run it to find out issues, how it works, etc.
+
+In the long run, this makes your unit tests even more valuable to you.
+
 I hope this example project is useful to you.
 
 That's all folks!

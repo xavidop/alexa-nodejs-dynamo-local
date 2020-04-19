@@ -21,7 +21,6 @@ module.exports.getS3PreSignedUrl = function getS3PreSignedUrl(s3ObjectKey) {
 
 module.exports = {
 
-
     getLocalDynamoDBClient: function getLocalDynamoDBClient(options) {
 
         const initializeClient = () => {
@@ -64,6 +63,6 @@ module.exports = {
         options.dynamoDBClient = dynamoDBClient
     }
 
-   return new DynamoDbPersistenceAdapter(options);;
+   return new DynamoDbPersistenceAdapter(options);
   }
 };
