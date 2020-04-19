@@ -3,7 +3,7 @@
 Mocking away dependencies — especially external dependencies — is common practice when writing tests or when you are developing locally.
 Dependency injection typically makes it easy to provide a mock implementation for your dependencies, e.g. a database.
 
-In this article we will discuss how to remove the need for mocking a [DynamoDB](https://aws.amazon.com/dynamodb/).
+In this article we will discuss how to mocking a [DynamoDB](https://aws.amazon.com/dynamodb/).
 
 Mocking database is a technique that allows you to set the desired database state in your tests to let specific data-sets ready for future test execution. 
 Using this technique, you can focus on getting the test data-sets ready once, and then use it on different test phases regarding the environments by using mocking.
@@ -26,7 +26,7 @@ Here you have the technologies used in this project
 
 The Alexa Skills Kit Command Line Interface (ASK CLI) is a tool for you to manage your Alexa skills and related resources, such as AWS Lambda functions.
 With ASK CLI, you have access to the Skill Management API, which allows you to manage Alexa skills programmatically from the command line.
-If you want how to create your Skill with the ASK CLI, please follow the first steps explained in my [Node.js Skill](https://github.com/xavidop/alexa-nodejs-lambda-helloworld) sample. Let's start!
+If you want how to create your Skill with the ASK CLI, please follow the first step explained in my [Node.js Skill](https://github.com/xavidop/alexa-nodejs-lambda-helloworld) sample. Let's start!
 
 ## Creating local DynamoDB
 
@@ -107,7 +107,7 @@ This code is located in `utilities/utils.js` file:
           return userId.substr(userId.lastIndexOf(".") + 1);
         }
     }
-    //if a DynamoDB client is specified, this adapter will use it. e.g. the one that will connect to our locad instance
+    //if a DynamoDB client is specified, this adapter will use it. e.g. the one that will connect to our local instance
     if(dynamoDBClient){
         options.dynamoDBClient = dynamoDBClient
     }
@@ -124,7 +124,7 @@ This is how our `inedx.js` looks like:
 
   var local = process.env.DYNAMODB_LOCAL
   let persistenceAdapter;
-  //depending if we have enabled the local DynamoDB, we create de pertiance adapter with or without local client
+  //depending if we have enabled the local DynamoDB, we create de persistence adapter with or without local client
   if(local === 'true'){
     let options = { port: 8000 }
     let dynamoDBClient = getLocalDynamoDBClient(options); 
@@ -321,7 +321,7 @@ Now we can show the information of our table:
 
 These queries are using the [AWS SDK for JavaScript](https://docs.aws.amazon.com/sdk-for-javascript/v2/developer-guide/dynamodb-examples.html). 
 
-This local DynamoDB is accessible by the AWS CLI. Before using the CLI, we need to create a `fake` profile that will use the region, accessKeyId and secretAccessKey used by our local database. So in our `~/.aws/credentials` we have to create the `fake` profile:
+This local DynamoDB is accessible by the AWS CLI as well. Before using the CLI, we need to create a `fake` profile that will use the region, accessKeyId and secretAccessKey used by our local database and client. So in our `~/.aws/credentials` we have to create the `fake` profile:
 
 ```bash
 
@@ -331,7 +331,7 @@ This local DynamoDB is accessible by the AWS CLI. Before using the CLI, we need 
 
 ```
 
-And in our `~/.aws.conifg` we set the local region for our `fake` profile:
+And in our `~/.aws/conifg` we set the local region for our `fake` profile:
 
 ```bash
 
