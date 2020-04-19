@@ -362,6 +362,17 @@ This command will return a list of tables in our local database:
 
 You can find more information about how to make queries with the AWS CLI [here](https://docs.aws.amazon.com/cli/latest/reference/dynamodb/index.html)
 
+## Extra
+
+Of course if you do not want to use the npm package `dynamodb-localhost`, AWS offers to us other ways to run a local instance.
+These ways are:
+1. Docker image. All info [here](https://hub.docker.com/r/amazon/dynamodb-local).
+2. Maven dependency if you have your skill in java using Maven or Gradle. All info [here](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DynamoDBLocal.Maven.html)
+
+
+At the end, those solutions will run exactly the same as npm package `dynamodb-localhost` but in some different ways. Choose the one that fits you better!
+
+
 ## Conclusion 
 
 This was a basic tutorial to mock a DynamoDB with our Alexa Skills using Node.js.
