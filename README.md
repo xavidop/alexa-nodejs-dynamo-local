@@ -331,7 +331,7 @@ This local DynamoDB is accessible by the AWS CLI as well. Before using the CLI, 
 
 ```
 
-And in our `~/.aws/conifg` we set the local region for our `fake` profile:
+And in our `~/.aws/config` we set the local region for our `fake` profile:
 
 ```bash
 
